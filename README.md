@@ -113,7 +113,7 @@ You should receive a JSON response with number properties and a fun fact.
 
 1️⃣ Clone the Repository
 
-git clone https://github.com/Aneeta007/Number-Classification-.git
+git clone https://github.com/Aneeta007/Number-Classification-API.git
 
 2️⃣ Install Dependencies
 
