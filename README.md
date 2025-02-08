@@ -113,8 +113,7 @@ You should receive a JSON response with number properties and a fun fact.
 
 1️⃣ Clone the Repository
 
-git clone <your-github-repo-url>
-cd number-classification-api
+git clone https://github.com/Aneeta007/Number-Classification-.git
 
 2️⃣ Install Dependencies
 
