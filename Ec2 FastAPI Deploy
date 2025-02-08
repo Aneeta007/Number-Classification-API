@@ -1,71 +1,104 @@
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
+import json
+import math
 import requests
 
-app = FastAPI()
-
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Function to check if a number is prime
-def is_prime(n: int) -> bool:
+def is_prime(n):
+    """Check if a number is prime"""
     if n < 2:
         return False
-    for i in range(2, int(n ** 0.5) + 1):
+    for i in range(2, int(math.sqrt(n)) + 1):
         if n % i == 0:
             return False
     return True
 
-# Function to check if a number is an Armstrong number
-def is_armstrong(n: int) -> bool:
-    digits = [int(d) for d in str(n)]
+def is_perfect(n):
+    """Check if a number is a perfect number"""
+    return n > 1 and sum(i for i in range(1, n) if n % i == 0) == n
+
+def is_armstrong(n):
+    """Check if a number is an Armstrong number"""
+    digits = [int(d) for d in str(abs(n))]  # Convert to absolute value to handle negatives
     power = len(digits)
-    return sum(d ** power for d in digits) == n
+    return sum(d ** power for d in digits) == abs(n)
 
-# Function to check if a number is perfect
-def is_perfect(n: int) -> bool:
-    if n <= 0:  # Ensure 0 is not classified as perfect
-        return False
-    return sum(i for i in range(1, n) if n % i == 0) == n
-
-# Fetch a fun fact from Numbers API
-def get_fun_fact(n: int) -> str:
+def get_fun_fact(number):
+    """Fetch a fun fact from Numbers API"""
     try:
-        response = requests.get(f"http://numbersapi.com/{n}/math?json=true")
-        if response.status_code == 200:
-            return response.json().get("text", "No fun fact found.")
-    except:
-        return "No fun fact found."
-    return "No fun fact found."
+        response = requests.get(f"http://numbersapi.com/{number}/math?json=true", timeout=2)
+        if response.ok:
+            return response.json().get("text", "No fun fact available.")
+    except requests.RequestException:
+        pass
+    return "No fun fact available."
 
-@app.get("/api/classify-number")
-def classify_number(number: str = Query(..., description="The number to classify")):
-    # Validate input: Must be an integer
+def lambda_handler(event, context):
     try:
-        num = int(number)
-    except ValueError:
-        return HTTPException(status_code=400, detail={"number": number, "error": True})
+        # Get query parameters
+        query_params = event.get("queryStringParameters", {}) or {}
+        number_str = query_params.get("number")
 
-    # Determine properties
-    properties = []
-    if is_armstrong(num):
-        properties.append("armstrong")
-    properties.append("odd" if num % 2 != 0 else "even")
+        if not number_str:
+            return {
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                },
+                "body": json.dumps({"number": None, "error": True})
+            }
 
-    # Build response
-    response = {
-        "number": num,
-        "is_prime": is_prime(num),
-        "is_perfect": is_perfect(num),
-        "properties": properties,
-        "digit_sum": sum(int(digit) for digit in str(num)),
-        "fun_fact": get_fun_fact(num)
-    }
+        # Convert number and validate
+        try:
+            number = float(number_str)  # Support floating-point numbers
+            if number.is_integer():
+                number = int(number)  # Convert safely to integer if applicable
+        except ValueError:
+            return {
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                },
+                "body": json.dumps({"number": number_str, "error": True})
+            }
 
-    return response  # Always returns valid JSON
+        # Determine properties
+        properties = ["odd" if number % 2 else "even"]
+        if is_armstrong(number):
+            properties.insert(0, "armstrong")
+
+        response_body = {
+            "number": number,
+            "is_prime": is_prime(number) if isinstance(number, int) else False,  # Prime check only for integers
+            "is_perfect": is_perfect(number) if isinstance(number, int) else False,  # Perfect numbers apply to integers
+            "properties": properties,
+            "digit_sum": sum(int(d) for d in str(abs(int(number)))),  # Handle negative numbers correctly
+            "fun_fact": get_fun_fact(number)
+        }
+
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type"
+            },
+            "body": json.dumps(response_body)
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type"
+            },
+            "body": json.dumps({"error": True, "message": f"Internal server error: {str(e)}"})
+        }
