@@ -1,0 +1,64 @@
+├── number-api
+│   ├── main.py  # FastAPI application
+│   ├── requirements.txt  # Dependencies
+│   ├── README.md  # Documentation
+│   ├── .gitignore  # Ignore unnecessary files
+
+# main.py (FastAPI Application)
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import requests
+
+app = FastAPI()
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def home():
+    return {"message": "API is running!"}
+
+@app.get("/api/classify-number")
+def classify_number(number: int):
+    if not isinstance(number, int):
+        raise HTTPException(status_code=400, detail="Invalid number")
+    
+    # Number properties
+    properties = []
+    if number % 2 == 0:
+        properties.append("even")
+    else:
+        properties.append("odd")
+    
+    # Fetch fun fact from Numbers API
+    try:
+        response = requests.get(f"http://numbersapi.com/{number}/math?json")
+        fun_fact = response.json().get("text", "No fact found.")
+    except:
+        fun_fact = "Could not fetch fun fact."
+    
+    return {
+        "number": number,
+        "is_prime": False,  # Placeholder for now
+        "is_perfect": False,  # Placeholder for now
+        "properties": properties,
+        "digit_sum": sum(int(digit) for digit in str(number)),
+        "fun_fact": fun_fact
+    }
+
+# requirements.txt
+fastapi
+uvicorn
+requests
+
+# .gitignore
+__pycache__/
+venv/
+.env
+output.log
